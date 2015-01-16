@@ -134,6 +134,456 @@ class InspireMetadataXmlSerializer(xml_serializers.BaseObjectSerializer):
         return e
 
     def from_xml(self, e):
+        ns = {
+            "gts": "http://www.isotc211.org/2005/gts",
+            "gml": "http://www.opengis.net/gml",
+            "gmx": "http://www.isotc211.org/2005/gmx",
+            "gsr": "http://www.isotc211.org/2005/gsr",
+            "gss": "http://www.isotc211.org/2005/gss",
+            "gco": "http://www.isotc211.org/2005/gco",
+            "gmd": "http://www.isotc211.org/2005/gmd",
+            "srv": "http://www.isotc211.org/2005/srv",
+            "xlink": "http://www.w3.org/1999/xlink",
+            "xsi": "http://www.w3.org/2001/XMLSchema-instance",
+            }
+
+        def fix_multiplicity(values, multiplicity):
+            if multiplicity == "0":
+                # 0 = None
+                if values:
+                    log.warn("Values found for element '%s' when multiplicity should be 0: %s",  self.name, values)
+                return None
+            elif multiplicity == "1":
+                # 1 = Mandatory, maximum 1 = Exactly one
+                if not values:
+                    log.warn("Value not found for element '%s'" % self.name)
+                    return None
+                return values[0]
+            elif multiplicity == "*":
+                # * = 0..* = zero or more
+                return values
+            elif multiplicity == "0..1":
+                # 0..1 = Mandatory, maximum 1 = optional (zero or one)
+                if values:
+                    return values[0]
+                else:
+                    return None
+            elif multiplicity == "1..*":
+                # 1..* = one or more
+                return values
+            else:
+                log.warning('Multiplicity not specified for element: %s',
+                            self.name)
+                return values
+
+        def get_elements(tree, search_paths, multiplicity):
+            for path in search_paths:
+                values = tree.xpath(path, namespaces=ns)
+                if values:
+                    return fix_multiplicity(values, multiplicity)
+
+        # Helpers
+
+        def to_date(string):
+            if isinstance(string, str):
+                return datetime.datetime.strptime(string,'%Y-%m-%d').date()
+            else:
+                return None
+        def to_unicode(string):
+            return unicode(string)
+
+        def to_int(string):
+            if isinstance(string, str):
+                return int(string)
+            else:
+                return None
+
+        def to_float(string):
+            if isinstance(string, str):
+                return float(string)
+            else:
+                return None
+
+        def get_resp_party(element):
+            organization = get_elements(element,
+                    ['gmd:organisationName/gco:CharacterString/text()'],
+                    '0..1')
+            role = get_elements(element,
+                    [
+                        "gmd:role/gmd:CI_RoleCode/@codeListValue", 
+                        "gmd:role/gmd:CI_RoleCode/text()"
+                        ],
+                    '0..1')
+            email = get_elements(element,
+                    ['gmd:contactInfo/gmd:CI_Contact/gmd:address/gmd:CI_Address/gmd:electronicMailAddress/gco:CharacterString/text()'],
+                    '0..1')
+            return {'organization':to_unicode(organization),
+                    'email':to_unicode(email),
+                    'role':role}
+
+        def get_ref_date(element):
+            date_type = get_elements(element,
+                [
+                "gmd:dateType/gmd:CI_DateTypeCode/@codeListValue",
+                "gmd:dateType/gmd:CI_DateTypeCode/text()",
+            ],
+                '0..1')
+
+            date = get_elements(element,
+                [
+                "gmd:date/gco:Date/text()",
+                "gmd:date/gco:DateTime/text()",
+            ],
+            '0..1')
+            return {'date':to_date(date), 'date_type':date_type}
+
+        obj = InspireMetadata()
+
+        # Contact Points
+        obj.contact = []
+        contact_points = get_elements(e,
+                ["gmd:contact/gmd:CI_ResponsibleParty"],
+                '*')
+        if contact_points:
+            for contact_point in contact_points:
+                contact_point_dict = get_resp_party(contact_point)
+                obj.contact.append(ResponsibleParty(organization = contact_point_dict.get('organization'),
+                                                    email = contact_point_dict.get('email'),
+                                                    role = contact_point_dict.get('role')))
+
+        # Responsible Parties
+        obj.responsible_party = []
+        resp_parties = get_elements(e,
+                ['gmd:identificationInfo/gmd:MD_DataIdentification/gmd:pointOfContact/gmd:CI_ResponsibleParty'],
+                '*')
+        if resp_parties:
+            for resp_party in resp_parties:
+                resp_party_dict = get_resp_party(resp_party)
+                obj.responsible_party.append(ResponsibleParty(organization = resp_party_dict.get('organization'),
+                        email = resp_party_dict.get('email'),
+                        role = resp_party_dict.get('role')))
+
+        # Languagecode
+        obj.languagecode = get_elements(e,
+                ['gmd:language/gmd:LanguageCode/@codeListValue',
+                'gmd:language/gmd:LanguageCode/text()'],
+                '0..1')
+
+        # Datestamp
+        obj.datestamp = to_date(get_elements(e,
+                ['gmd:dateStamp/gco:DateTime/text()',
+                'gmd:dateStamp/gco:Date/text()'],
+                '0..1'))
+
+        # Title
+        obj.title = to_unicode(get_elements(e,
+                [
+                "gmd:identificationInfo/gmd:MD_DataIdentification/gmd:citation/gmd:CI_Citation/gmd:title/gco:CharacterString/text()",
+                "gmd:identificationInfo/srv:SV_ServiceIdentification/gmd:citation/gmd:CI_Citation/gmd:title/gco:CharacterString/text()",
+            ],
+            '0..1'))
+
+        #Dates
+        dates = get_elements(e,
+                [
+                "gmd:identificationInfo/gmd:MD_DataIdentification/gmd:citation/gmd:CI_Citation/gmd:date/gmd:CI_Date",
+                "gmd:identificationInfo/srv:SV_ServiceIdentification/gmd:citation/gmd:CI_Citation/gmd:date/gmd:CI_Date",
+            ],
+                '*')
+        for date in dates:
+            date_dict = get_ref_date(date)
+            # Creation date
+            if date_dict.get('date_type') == 'creation':
+                obj.creation_date = date_dict.get('date')
+            # Publication date
+            elif date_dict.get('date_type') == 'publication':
+                obj.publication_date = date_dict.get('date')
+            # Revision date
+            elif date_dict.get('date_type') == 'revision':
+                obj.revision_date = date_dict.get('date')
+
+        # TODO: Is this needed? Identifier given automatically by CKAN
+        # Identifier
+        obj.identifier = get_elements(e,[
+            "gmd:identificationInfo/gmd:MD_DataIdentification/gmd:citation/gmd:CI_Citation/gmd:identifier/gmd:RS_Identifier/gmd:code/gco:CharacterString/text()",
+                "gmd:identificationInfo/srv:SV_ServiceIdentification/gmd:citation/gmd:CI_Citation/gmd:identifier/gmd:RS_Identifier/gmd:code/gco:CharacterString/text()",
+            ],
+           '0..1')
+
+        # Abstract
+        obj.abstract = to_unicode(get_elements(e,
+                [
+                "gmd:identificationInfo/gmd:MD_DataIdentification/gmd:abstract/gco:CharacterString/text()",
+                "gmd:identificationInfo/srv:SV_ServiceIdentification/gmd:abstract/gco:CharacterString/text()",
+            ],
+            '0..1'))
+
+        # Keywords
+        def get_thesaurus(element):
+            keywords = get_elements(element,
+                    [
+                    "gmd:keyword/gco:CharacterString/text()"
+                    ],
+                '*')
+
+            title = get_elements(element,
+                    [
+                    "gmd:thesaurusName/gmd:CI_Citation/gmd:title/gco:CharacterString/text()"
+                    ],
+                    '1')
+            # TODO: problem with date
+            #date_type = date_dict.get('date_type')
+            el = get_elements(element,
+                    [
+                        "gmd:thesaurusName/gmd:CI_Citation/gmd:date/gmd:CI_Date"
+                    ],
+                    '0..1')
+            if el:
+                ref_date = get_ref_date(el)
+
+            # Let mandatory Gemet INSPIRE appear everytime
+            #obj.keywords = {}
+            if title:
+                thes_split = title.split(',')
+                # TODO thes_split[1] (=version) can be used in a get_by_title_and_version() 
+                # to enforce a specific thesaurus version.
+                thes_title = thes_split[0]
+                try:
+                    thes_name = vocabularies.munge('Keywords-' + thes_title)
+                    thes = Thesaurus.make(thes_name)
+                    if thes:
+                        kw = ThesaurusTerms(thesaurus=thes, terms=keywords)
+                        #obj.keywords.update({thes_name:kw})
+                        return {thes_name:kw}
+                except:
+                    return {}
+            else:
+                # TODO: handle free keywords
+                return {}
+                #return {'free-keywords':ThesaurusTerms(terms=keywords)}
+
+        thesauri = get_elements(e,
+                [
+                "gmd:identificationInfo/gmd:MD_DataIdentification/gmd:descriptiveKeywords/gmd:MD_Keywords",
+                "gmd:identificationInfo/srv:SV_ServiceIdentification/gmd:descriptiveKeywords/gmd:MD_Keywords",
+            ],
+            '*')
+        obj.keywords = {}
+        if thesauri:
+            for thesaurus in thesauri:
+                obj.keywords.update(get_thesaurus(thesaurus))
+
+        # Access Constraints
+        obj.access_constraints = []
+        access_constraints = get_elements(e,
+                [
+                "gmd:identificationInfo/gmd:MD_DataIdentification/gmd:resourceConstraints/gmd:MD_Constraints/gmd:useLimitation/gco:CharacterString/text()",
+                "gmd:identificationInfo/srv:SV_ServiceIdentification/gmd:resourceConstraints/gmd:MD_Constraints/gmd:useLimitation/gco:CharacterString/text()",
+            ],
+            '*')
+        if access_constraints:
+            for constraint in access_constraints:
+                obj.access_constraints.append(to_unicode(constraint))
+
+        # Use limitations
+        obj.limitations = []
+        limitations = get_elements(e,
+            [
+                "gmd:identificationInfo/gmd:MD_DataIdentification/gmd:resourceConstraints/gmd:MD_LegalConstraints/gmd:otherConstraints/gco:CharacterString/text()",
+                "gmd:identificationInfo/srv:SV_ServiceIdentification/gmd:resourceConstraints/gmd:MD_LegalConstraints/gmd:otherConstraints/gco:CharacterString/text()",
+            ],
+        '*')
+        if limitations:
+            for limitation in limitations:
+                obj.limitations.append(to_unicode(limitation))
+
+        # Spatial Resolution
+        def get_spatial_resolution(element):
+            distance = get_elements(element,
+                    [
+                        "gmd:distance/gco:Distance/text()"
+                    ],
+                    '0..1')
+
+            uom = get_elements(element,
+                    [
+                        "gmd:distance/gco:Distance/@uom"
+                    ],
+                    '0..1')
+            denominator = get_elements(element,
+                    [
+                        "gmd:equivalentScale/gmd:MD_RepresentativeFraction/gmd:denominator/gco:Integer/text()"
+                    ],
+                    '0..1')
+            return {'distance':to_int(distance),
+                    'uom':to_unicode(uom),
+                    'denominator':to_int(denominator)}
+
+        resolutions = get_elements(e,
+                [
+                "gmd:identificationInfo/gmd:MD_DataIdentification/gmd:spatialResolution/gmd:MD_Resolution",
+                "gmd:identificationInfo/srv:SV_ServiceIdentification/gmd:spatialResolution/gmd:MD_Resolution",
+           ],
+            '*')
+        obj.spatial_resolution = []
+        if resolutions:
+            for resolution in resolutions:
+                value = get_spatial_resolution(resolution)
+                obj.spatial_resolution.append(
+                        SpatialResolution(distance = value.get('distance'),
+                            uom = value.get('uom'),
+                            denominator = value.get('denominator')))
+
+        # Resource language
+        obj.resource_language = get_elements(e,
+                [
+                "gmd:identificationInfo/gmd:MD_DataIdentification/gmd:language/gmd:LanguageCode/@codeListValue",
+                "gmd:identificationInfo/srv:SV_ServiceIdentification/gmd:language/gmd:LanguageCode/@codeListValue",
+                "gmd:identificationInfo/gmd:MD_DataIdentification/gmd:language/gmd:LanguageCode/text()",
+                "gmd:identificationInfo/srv:SV_ServiceIdentification/gmd:language/gmd:LanguageCode/text()",
+            ],
+            '*')
+
+        # Topic Category
+        obj.topic_category = get_elements(e,
+                [
+                "gmd:identificationInfo/gmd:MD_DataIdentification/gmd:topicCategory/gmd:MD_TopicCategoryCode/text()",
+                "gmd:identificationInfo/srv:SV_ServiceIdentification/gmd:topicCategory/gmd:MD_TopicCategoryCode/text()",
+            ],
+            '*')
+
+        # Geographic Extent
+        def get_bbox(element):
+            wblng = get_elements(element,
+                [
+                    "gmd:westBoundLongitude/gco:Decimal/text()"
+                ],
+                '1')
+            eblng = get_elements(element,
+                [
+                    "gmd:eastBoundLongitude/gco:Decimal/text()"
+                ],
+                '1')
+            sblat = get_elements(element,
+                [
+                    "gmd:southBoundLatitude/gco:Decimal/text()"
+                ],
+                '1')
+            nblat = get_elements(element,
+                [
+                    "gmd:northBoundLatitude/gco:Decimal/text()"
+                ],
+                '1')
+            return {'wblng':to_float(wblng),
+                    'eblng':to_float(eblng),
+                    'sblat':to_float(sblat),
+                    'nblat':to_float(nblat)}
+
+        obj.bounding_box = []
+        bboxes = get_elements(e,
+                [
+                "gmd:identificationInfo/gmd:MD_DataIdentification/gmd:extent/gmd:EX_Extent/gmd:geographicElement/gmd:EX_GeographicBoundingBox",
+                "gmd:identificationInfo/srv:SV_ServiceIdentification/srv:extent/gmd:EX_Extent/gmd:geographicElement/gmd:EX_GeographicBoundingBox",
+            ],
+            '*')
+        if bboxes:
+            for bbox in bboxes:
+                bbox_dict = get_bbox(bbox)
+                obj.bounding_box.append(GeographicBoundingBox(nblat = bbox_dict.get('nblat'),
+                                                                    sblat = bbox_dict.get('sblat'),
+                                                                    wblng = bbox_dict.get('wblng'),
+                                                                     eblng = bbox_dict.get('eblng')))
+
+        # Temporal Extent
+        def get_textent(element):
+            start = get_elements(element,
+                    [
+                        "gml:TimePeriod/gml:beginPosition/text()"
+                    ],
+                    '0..1')
+            end = get_elements(element,
+                    [
+                        "gml:TimePeriod/gml:endPosition/text()"
+                    ],
+                    '0..1')
+            return {'start':to_date(start),
+                    'end': to_date(end)}
+
+        obj.temporal_extent = []
+        textents = get_elements(e,
+                ["gmd:identificationInfo/gmd:MD_DataIdentification/gmd:extent/gmd:EX_Extent/gmd:temporalElement/gmd:EX_TemporalExtent/gmd:extent"],
+                '*')
+        if textents:
+            for textent in textents:
+                textent_dict = get_textent(textent)
+                obj.temporal_extent.append(TemporalExtent(start = textent_dict.get('start'),
+                                                        end = textent_dict.get('end')))
+
+        # Resource locator
+        obj.locator = get_elements(e,
+                [
+                "gmd:distributionInfo/gmd:MD_Distribution/gmd:transferOptions/gmd:MD_DigitalTransferOptions/gmd:onLine/gmd:CI_OnlineResource/gmd:linkage/gmd:URL/text()",
+                "gmd:distributionInfo/gmd:MD_Distribution/gmd:distributor/gmd:MD_Distributor/gmd:distributorTransferOptions/gmd:MD_DigitalTransferOptions/gmd:onLine/gmd:CI_OnlineResource/gmd:linkage/gmd:URL/text()"
+            ],
+            '*')
+
+        # Conformity
+        def get_conformity(element):
+            title = get_elements(element,
+                [
+                    "gmd:specification/gmd:CI_Citation/gmd:title/gco:CharacterString/text()",
+            ],
+                '0..1')
+            el = get_elements(element,
+                    [
+                        "gmd:specification/gmd:CI_Citation/gmd:date/gmd:CI_Date",
+                    ],
+                    '0..1')
+            ref_date = get_ref_date(el)
+
+            degree = get_elements(element,
+                    [
+                        "gmd:pass/gco:Boolean/text()",
+                    ],
+                    '1')
+
+            if degree == 'true':
+                degree_str = 'conformant'
+            elif degree == 'false':
+                degree_str = 'not-conformant'
+            else:
+                degree_str = 'not-evaluated'
+
+            return {'title':to_unicode(title),
+                    'date':ref_date.get('date'),
+                    'date_type':ref_date.get('date_type'),
+                    'degree':degree_str}
+
+        conformities = get_elements(e,
+                [
+                "gmd:dataQualityInfo/gmd:DQ_DataQuality/gmd:report/gmd:DQ_DomainConsistency/gmd:result/gmd:DQ_ConformanceResult",
+                ],
+                '*')
+        # Conformity degree has 3 states, true, false and None
+        obj.conformity = []
+        if conformities:
+            for conformity in conformities:
+                conf_dict = get_conformity(conformity)
+                obj.conformity.append(Conformity(title = conf_dict.get('title'),
+                                                date = conf_dict.get('date'),
+                                                date_type = conf_dict.get('date_type'),
+                                                degree = conf_dict.get('degree')))
+
+        # Lineage
+        obj.lineage = to_unicode(get_elements(e,
+                [
+                    "gmd:dataQualityInfo/gmd:DQ_DataQuality/gmd:lineage/gmd:LI_Lineage/gmd:statement/gco:CharacterString/text()"
+                ],
+                '0..1'))
+
+        return obj
+
+    def from_xml_old(self, e):
         '''Build and return an InspireMetadata object serialized as an etree
         Element e.
         '''
@@ -154,6 +604,15 @@ class InspireMetadataXmlSerializer(xml_serializers.BaseObjectSerializer):
             return result
 
         md = MD_Metadata(e)
+        insp_title = None
+        if not md.identification.title:
+            raise Exception('XML does not contain mandatory Title field','')
+    
+        insp_title = unicode(md.identification.title)
+        insp_abstract = None
+        if md.identification.abstract:
+            insp_abstract = unicode(md.identification.abstract)
+
 
         datestamp = to_date(md.datestamp)
         id_list = md.identification.uricode
@@ -219,7 +678,11 @@ class InspireMetadataXmlSerializer(xml_serializers.BaseObjectSerializer):
         #    raise Exception('publication date not present','')
         #elif not revision_date:
         #    raise Exception('revision date not present','')
-
+        
+        lineage = None
+        if md.dataquality.lineage:
+            lineage = unicode(md.dataquality.lineage)
+        
         spatial_list = []
 
         if len(md.identification.distance) != len(md.identification.uom):
@@ -247,31 +710,32 @@ class InspireMetadataXmlSerializer(xml_serializers.BaseObjectSerializer):
             # not-evaluated (Todo: MD_Metadata bug #63)
             invalid_degree = True
 
-        if md.dataquality.conformancedate:
-        #and len(md.dataquality.conformancedate) == len(md.dataquality.degree):
-            for i in range(0,len(md.dataquality.conformancedate)):
+        if md.dataquality:
+            if md.dataquality.conformancedate:
+            #and len(md.dataquality.conformancedate) == len(md.dataquality.degree):
+                for i in range(0,len(md.dataquality.conformancedate)):
 
-                date = to_date(md.dataquality.conformancedate[i])
+                    date = to_date(md.dataquality.conformancedate[i])
 
-                date_type = md.dataquality.conformancedatetype[i]
-                # TODO md.dataquality.conformancedatetype returns empty
-                if invalid_degree:
-                    degree = 'not-evaluated'
-                else:
-                    try:
-                        if md.dataquality.conformancedegree[i] == 'true':
-                            degree = 'conformant'
-                        elif md.dataquality.conformancedegree[i] == 'false':
-                            degree = 'not-conformant'
-                    except:
-                        degree = "not-evaluated"
-                title = unicode(md.dataquality.conformancetitle[i])
-                if title != 'None': 
-                    conf_list.append(Conformity(title=title, date=date, date_type=date_type, degree=degree))
+                    date_type = md.dataquality.conformancedatetype[i]
+                    # TODO md.dataquality.conformancedatetype returns empty
+                    if invalid_degree:
+                        degree = 'not-evaluated'
+                    else:
+                        try:
+                            if md.dataquality.conformancedegree[i] == 'true':
+                                degree = 'conformant'
+                            elif md.dataquality.conformancedegree[i] == 'false':
+                                degree = 'not-conformant'
+                        except:
+                            degree = "not-evaluated"
+                    title = unicode(md.dataquality.conformancetitle[i])
+                    if title != 'None': 
+                        conf_list.append(Conformity(title=title, date=date, date_type=date_type, degree=degree))
 
-                # TODO: is title required fields? If so the following is unnecessary
-                else:
-                    conf_list.append(Conformity(date=date, date_type=date_type, degree=degree))
+                    # TODO: is title required fields? If so the following is unnecessary
+                    else:
+                        conf_list.append(Conformity(date=date, date_type=date_type, degree=degree))
 
         limit_list = []
         for it in md.identification.uselimitation:
@@ -285,8 +749,8 @@ class InspireMetadataXmlSerializer(xml_serializers.BaseObjectSerializer):
         obj.contact = to_resp_party(md.contact)
         obj.datestamp = datestamp
         obj.languagecode = md.languagecode
-        obj.title = unicode(md.identification.title)
-        obj.abstract = unicode(md.identification.abstract)
+        obj.title = insp_title
+        obj.abstract = insp_abstract 
         obj.identifier = id_list[0]
         obj.locator = url_list
         #obj.resource_language = md.identification.resourcelanguage
@@ -297,7 +761,7 @@ class InspireMetadataXmlSerializer(xml_serializers.BaseObjectSerializer):
         obj.creation_date = creation_date
         obj.publication_date = publication_date
         obj.revision_date = revision_date
-        obj.lineage = unicode(md.dataquality.lineage)
+        obj.lineage = lineage
         obj.spatial_resolution = spatial_list
         obj.conformity = conf_list
         obj.access_constraints = limit_list

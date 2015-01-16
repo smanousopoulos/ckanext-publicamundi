@@ -186,7 +186,7 @@ inspire1 = InspireMetadata(
             thesaurus=thesaurus_gemet_themes
         ),
         'keywords-gemet-inspire-themes': ThesaurusTerms(
-            terms=["buildings", "addresses"],
+            terms=["Buildings", "Addresses"],
             thesaurus=thesaurus_gemet_inspire_data_themes,
         ),
     },

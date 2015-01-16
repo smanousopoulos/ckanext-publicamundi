@@ -35,7 +35,8 @@ def make_vocabulary(data):
     terms = []
     if isinstance(data, list):
         for t in data:
-            k = munge(t)
+            #k = munge(t)
+            k = t
             terms.append(SimpleTerm(k, k, t))
     elif isinstance(data, dict):     
         for k, t in data.items():
