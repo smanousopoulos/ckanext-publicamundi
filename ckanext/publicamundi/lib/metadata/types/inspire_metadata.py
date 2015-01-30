@@ -290,17 +290,18 @@ class InspireMetadataXmlSerializer(xml_serializers.BaseObjectSerializer):
                 "gmd:identificationInfo/srv:SV_ServiceIdentification/gmd:citation/gmd:CI_Citation/gmd:date/gmd:CI_Date",
             ],
                 '*')
-        for date in dates:
-            date_dict = get_ref_date(date)
-            # Creation date
-            if date_dict.get('date_type') == 'creation':
-                obj.creation_date = date_dict.get('date')
-            # Publication date
-            elif date_dict.get('date_type') == 'publication':
-                obj.publication_date = date_dict.get('date')
-            # Revision date
-            elif date_dict.get('date_type') == 'revision':
-                obj.revision_date = date_dict.get('date')
+        if dates:
+            for date in dates:
+                date_dict = get_ref_date(date)
+                # Creation date
+                if date_dict.get('date_type') == 'creation':
+                    obj.creation_date = date_dict.get('date')
+                # Publication date
+                elif date_dict.get('date_type') == 'publication':
+                    obj.publication_date = date_dict.get('date')
+                # Revision date
+                elif date_dict.get('date_type') == 'revision':
+                    obj.revision_date = date_dict.get('date')
 
         # TODO: Is this needed? Identifier given automatically by CKAN
         # Identifier
@@ -359,8 +360,9 @@ class InspireMetadataXmlSerializer(xml_serializers.BaseObjectSerializer):
                     return {}
             else:
                 # TODO: handle free keywords
+                #thes = Thesaurus()
                 return {}
-                #return {'free-keywords':ThesaurusTerms(terms=keywords)}
+                #return {'free-keywords':ThesaurusTerms(thesaurus=thes, terms=keywords)}
 
         thesauri = get_elements(e,
                 [
@@ -372,7 +374,6 @@ class InspireMetadataXmlSerializer(xml_serializers.BaseObjectSerializer):
         if thesauri:
             for thesaurus in thesauri:
                 obj.keywords.update(get_thesaurus(thesaurus))
-
         # Access Constraints
         obj.access_constraints = []
         access_constraints = get_elements(e,
