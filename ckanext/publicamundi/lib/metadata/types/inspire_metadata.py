@@ -186,7 +186,11 @@ class InspireMetadataXmlSerializer(xml_serializers.BaseObjectSerializer):
 
         def to_date(string):
             if isinstance(string, str):
+                # TODO: Should this fail when wrong date string is read to notify user or just not read value?
+                #try:
                 return datetime.datetime.strptime(string,'%Y-%m-%d').date()
+                #except:
+                #    return None
             else:
                 return None
         def to_unicode(string):
@@ -244,7 +248,7 @@ class InspireMetadataXmlSerializer(xml_serializers.BaseObjectSerializer):
         contact_points = get_elements(e,
                 ["gmd:contact/gmd:CI_ResponsibleParty"],
                 '*')
-        if contact_points:
+        if contact_points is not None:
             for contact_point in contact_points:
                 contact_point_dict = get_resp_party(contact_point)
                 obj.contact.append(ResponsibleParty(organization = contact_point_dict.get('organization'),
@@ -256,7 +260,7 @@ class InspireMetadataXmlSerializer(xml_serializers.BaseObjectSerializer):
         resp_parties = get_elements(e,
                 ['gmd:identificationInfo/gmd:MD_DataIdentification/gmd:pointOfContact/gmd:CI_ResponsibleParty'],
                 '*')
-        if resp_parties:
+        if resp_parties is not None:
             for resp_party in resp_parties:
                 resp_party_dict = get_resp_party(resp_party)
                 obj.responsible_party.append(ResponsibleParty(organization = resp_party_dict.get('organization'),
@@ -290,7 +294,7 @@ class InspireMetadataXmlSerializer(xml_serializers.BaseObjectSerializer):
                 "gmd:identificationInfo/srv:SV_ServiceIdentification/gmd:citation/gmd:CI_Citation/gmd:date/gmd:CI_Date",
             ],
                 '*')
-        if dates:
+        if dates is not None:
             for date in dates:
                 date_dict = get_ref_date(date)
                 # Creation date
@@ -339,12 +343,12 @@ class InspireMetadataXmlSerializer(xml_serializers.BaseObjectSerializer):
                         "gmd:thesaurusName/gmd:CI_Citation/gmd:date/gmd:CI_Date"
                     ],
                     '0..1')
-            if el:
+            if el is not None:
                 ref_date = get_ref_date(el)
 
             # Let mandatory Gemet INSPIRE appear everytime
             #obj.keywords = {}
-            if title:
+            if title is not None:
                 thes_split = title.split(',')
                 # TODO thes_split[1] (=version) can be used in a get_by_title_and_version() 
                 # to enforce a specific thesaurus version.
@@ -371,7 +375,7 @@ class InspireMetadataXmlSerializer(xml_serializers.BaseObjectSerializer):
             ],
             '*')
         obj.keywords = {}
-        if thesauri:
+        if thesauri is not None:
             for thesaurus in thesauri:
                 obj.keywords.update(get_thesaurus(thesaurus))
         # Access Constraints
@@ -382,7 +386,7 @@ class InspireMetadataXmlSerializer(xml_serializers.BaseObjectSerializer):
                 "gmd:identificationInfo/srv:SV_ServiceIdentification/gmd:resourceConstraints/gmd:MD_Constraints/gmd:useLimitation/gco:CharacterString/text()",
             ],
             '*')
-        if access_constraints:
+        if access_constraints is not None:
             for constraint in access_constraints:
                 obj.access_constraints.append(to_unicode(constraint))
 
@@ -394,7 +398,7 @@ class InspireMetadataXmlSerializer(xml_serializers.BaseObjectSerializer):
                 "gmd:identificationInfo/srv:SV_ServiceIdentification/gmd:resourceConstraints/gmd:MD_LegalConstraints/gmd:otherConstraints/gco:CharacterString/text()",
             ],
         '*')
-        if limitations:
+        if limitations is not None:
             for limitation in limitations:
                 obj.limitations.append(to_unicode(limitation))
 
@@ -427,7 +431,7 @@ class InspireMetadataXmlSerializer(xml_serializers.BaseObjectSerializer):
            ],
             '*')
         obj.spatial_resolution = []
-        if resolutions:
+        if resolutions is not None:
             for resolution in resolutions:
                 value = get_spatial_resolution(resolution)
                 obj.spatial_resolution.append(
@@ -487,7 +491,7 @@ class InspireMetadataXmlSerializer(xml_serializers.BaseObjectSerializer):
                 "gmd:identificationInfo/srv:SV_ServiceIdentification/srv:extent/gmd:EX_Extent/gmd:geographicElement/gmd:EX_GeographicBoundingBox",
             ],
             '*')
-        if bboxes:
+        if bboxes is not None:
             for bbox in bboxes:
                 bbox_dict = get_bbox(bbox)
                 obj.bounding_box.append(GeographicBoundingBox(nblat = bbox_dict.get('nblat'),
@@ -514,7 +518,7 @@ class InspireMetadataXmlSerializer(xml_serializers.BaseObjectSerializer):
         textents = get_elements(e,
                 ["gmd:identificationInfo/gmd:MD_DataIdentification/gmd:extent/gmd:EX_Extent/gmd:temporalElement/gmd:EX_TemporalExtent/gmd:extent"],
                 '*')
-        if textents:
+        if textents is not None:
             for textent in textents:
                 textent_dict = get_textent(textent)
                 obj.temporal_extent.append(TemporalExtent(start = textent_dict.get('start'),
@@ -567,7 +571,7 @@ class InspireMetadataXmlSerializer(xml_serializers.BaseObjectSerializer):
                 '*')
         # Conformity degree has 3 states, true, false and None
         obj.conformity = []
-        if conformities:
+        if conformities is not None:
             for conformity in conformities:
                 conf_dict = get_conformity(conformity)
                 obj.conformity.append(Conformity(title = conf_dict.get('title'),
@@ -591,7 +595,10 @@ class InspireMetadataXmlSerializer(xml_serializers.BaseObjectSerializer):
 
         def to_date(string):
             if isinstance(string, str):
-                return datetime.datetime.strptime(string,'%Y-%m-%d').date()
+                try:
+                    return datetime.datetime.strptime(string,'%Y-%m-%d').date()
+                except:
+                    return None
             else:
                 return None
 
