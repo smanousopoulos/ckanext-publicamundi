@@ -147,6 +147,8 @@ class InspireMetadataXmlSerializer(xml_serializers.BaseObjectSerializer):
             "xsi": "http://www.w3.org/2001/XMLSchema-instance",
             }
 
+        # Helpers
+
         def fix_multiplicity(values, multiplicity):
             if multiplicity == "0":
                 # 0 = None
@@ -182,8 +184,6 @@ class InspireMetadataXmlSerializer(xml_serializers.BaseObjectSerializer):
                 if values:
                     return fix_multiplicity(values, multiplicity)
 
-        # Helpers
-
         def to_date(string):
             if isinstance(string, str):
                 # TODO: Should this fail when wrong date string is read to notify user or just not read value?
@@ -193,19 +193,23 @@ class InspireMetadataXmlSerializer(xml_serializers.BaseObjectSerializer):
                 #    return None
             else:
                 return None
+
         def to_unicode(string):
-            return unicode(string)
+            try:
+                return unicode(string)
+            except:
+                return None
 
         def to_int(string):
-            if isinstance(string, str):
+            try:
                 return int(string)
-            else:
+            except:
                 return None
 
         def to_float(string):
-            if isinstance(string, str):
+            try:
                 return float(string)
-            else:
+            except:
                 return None
 
         def get_resp_party(element):
@@ -214,8 +218,8 @@ class InspireMetadataXmlSerializer(xml_serializers.BaseObjectSerializer):
                     '0..1')
             role = get_elements(element,
                     [
+                        "gmd:role/gmd:CI_RoleCode/text()",
                         "gmd:role/gmd:CI_RoleCode/@codeListValue", 
-                        "gmd:role/gmd:CI_RoleCode/text()"
                         ],
                     '0..1')
             email = get_elements(element,
@@ -228,8 +232,8 @@ class InspireMetadataXmlSerializer(xml_serializers.BaseObjectSerializer):
         def get_ref_date(element):
             date_type = get_elements(element,
                 [
-                "gmd:dateType/gmd:CI_DateTypeCode/@codeListValue",
                 "gmd:dateType/gmd:CI_DateTypeCode/text()",
+                "gmd:dateType/gmd:CI_DateTypeCode/@codeListValue",
             ],
                 '0..1')
 
@@ -269,8 +273,11 @@ class InspireMetadataXmlSerializer(xml_serializers.BaseObjectSerializer):
 
         # Languagecode
         obj.languagecode = get_elements(e,
-                ['gmd:language/gmd:LanguageCode/@codeListValue',
-                'gmd:language/gmd:LanguageCode/text()'],
+                [
+                    'gmd:language/gmd:LanguageCode/text()',
+                    'gmd:language/gmd:LanguageCode/@codeListValue',
+
+                    ],
                 '0..1')
 
         # Datestamp
@@ -442,10 +449,10 @@ class InspireMetadataXmlSerializer(xml_serializers.BaseObjectSerializer):
         # Resource language
         obj.resource_language = get_elements(e,
                 [
-                "gmd:identificationInfo/gmd:MD_DataIdentification/gmd:language/gmd:LanguageCode/@codeListValue",
-                "gmd:identificationInfo/srv:SV_ServiceIdentification/gmd:language/gmd:LanguageCode/@codeListValue",
                 "gmd:identificationInfo/gmd:MD_DataIdentification/gmd:language/gmd:LanguageCode/text()",
                 "gmd:identificationInfo/srv:SV_ServiceIdentification/gmd:language/gmd:LanguageCode/text()",
+                "gmd:identificationInfo/gmd:MD_DataIdentification/gmd:language/gmd:LanguageCode/@codeListValue",
+                "gmd:identificationInfo/srv:SV_ServiceIdentification/gmd:language/gmd:LanguageCode/@codeListValue",
             ],
             '*')
 
@@ -539,12 +546,12 @@ class InspireMetadataXmlSerializer(xml_serializers.BaseObjectSerializer):
                     "gmd:specification/gmd:CI_Citation/gmd:title/gco:CharacterString/text()",
             ],
                 '0..1')
-            el = get_elements(element,
+            date_cand = get_elements(element,
                     [
                         "gmd:specification/gmd:CI_Citation/gmd:date/gmd:CI_Date",
                     ],
                     '0..1')
-            ref_date = get_ref_date(el)
+            ref_date = get_ref_date(date_cand)
 
             degree = get_elements(element,
                     [

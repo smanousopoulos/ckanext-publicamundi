@@ -23,6 +23,31 @@ from ckanext.publicamundi.lib.metadata.xml_serializers import xml_serializer_for
 class TestController(BaseTestController):
 
     @nose.tools.istest
+    def test_from_xml(self):
+        # 3.xml contains wrong thesaurus name, responsible party and contact (role without camel annotation)
+        yield self._from_xml, 'tests/samples/3.xml', set(['keywords', 'responsible_party', 'contact'])
+        # 3b.xml fails on languagecode codelistvalue(2 letters instead of 3)
+        yield self._from_xml, 'tests/samples/3b.xml', set(['languagecode'])
+        # 3b.xml fails on date, contains None instead of date
+        # TODO: doesnt fail controllably
+        yield self._from_xml, 'tests/samples/3c.xml', set([''])
+
+        # aktogrammh.xml fails on several fields during validation, responsible party(non camel), locator not read yet
+        yield self._from_xml, 'tests/samples/aktogrammh.xml', set([
+            'responsible_party', 'locator'])
+        #dhmosia_kthria.xml fails on several fields during validation
+        yield self._from_xml, 'tests/samples/dhmosia_kthria.xml', set([
+            'locator'])
+        # full.xml fails on several fields during validation (keywords list too short (only free keywords) spatial resolution denominator too small (0)
+        yield self._from_xml, 'tests/samples/full.xml', set(['keywords', 'spatial_resolution'])
+
+    @nose.tools.istest
+    def test_to_xsd(self):
+        #yield self._validate_with_xsd, 'inspire1', 'tests/samples/3.xml', False
+        #yield self._validate_with_xsd, 'inspire1', 'tests/samples/aktogrammh.xml', True
+        pass
+
+    @nose.tools.istest
     def test_to_then_from_xml(self):
         yield self._to_xml, 'inspire1', '/tmp/inspire1.xml'
         yield self._from_xml, '/tmp/inspire1.xml'
@@ -32,29 +57,6 @@ class TestController(BaseTestController):
         #yield self._validate_with_xsd, 'inspire4', '/tmp/inspire4.xml', True
         pass
 
-    @nose.tools.istest
-    def test_from_xml(self):
-        # 3.xml contains wrong thesaurus name, responsible party and contact (role without camel annotation)
-        yield self._from_xml, 'tests/samples/3.xml', set(['keywords', 'responsible_party', 'contact'])
-        # 3b.xml fails on languagecode (2 letters instead of 3)
-        yield self._from_xml, 'tests/samples/3b.xml', set(['languagecode'])
-        # 3b.xml fails on date, contains None instead of date
-        yield self._from_xml, 'tests/samples/3c.xml', set(['creation_date'])
-
-        # aktogrammh.xml fails on several fields during validation, responsible party(non camel), locator not read yet
-        yield self._from_xml, 'tests/samples/aktogrammh.xml', set([
-            'responsible_party', 'locator'])
-        #dhmosia_kthria.xml fails on several fields during validation
-        yield self._from_xml, 'tests/samples/dhmosia_kthria.xml', set([
-            'locator'])
-        # full.xml fails during etree parse, why?
-        #yield self._from_xml, 'tests/samples/full.xml', set([])
-
-    @nose.tools.istest
-    def test_to_xsd(self):
-        #yield self._validate_with_xsd, 'inspire1', 'tests/samples/3.xml', False
-        #yield self._validate_with_xsd, 'inspire1', 'tests/samples/aktogrammh.xml', True
-        pass
 
     @with_request_context('publicamundi-tests', 'index')
     def _to_xml(self, fixture_name, outfile):
