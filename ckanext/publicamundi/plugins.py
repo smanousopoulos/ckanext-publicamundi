@@ -113,7 +113,7 @@ class DatasetForm(p.SingletonPlugin, toolkit.DefaultDatasetForm):
 
         # Are we in debug mode?
 
-        cls._debug = asbool(config['global_conf']['debug'])
+        #cls._debug = asbool(config['global_conf']['debug'])
         
         # Set supported dataset types
 

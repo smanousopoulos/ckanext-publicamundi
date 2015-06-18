@@ -202,9 +202,11 @@
       {% for k in data.free_keywords -%}
        <gmd:descriptiveKeywords>
         <gmd:MD_Keywords>
+         {% for keyword in k['values'] %}
           <gmd:keyword>
-            <gco:CharacterString>{{ k['value'] }}</gco:CharacterString>
-          </gmd:keyword>
+            <gco:CharacterString>{{ keyword }}</gco:CharacterString>
+        </gmd:keyword>
+         {% endfor %}
           {% if k['originating_vocabulary'] -%}
           <gmd:thesaurusName>
             <gmd:CI_Citation>

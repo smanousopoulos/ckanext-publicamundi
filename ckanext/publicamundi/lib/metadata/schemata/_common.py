@@ -76,9 +76,12 @@ class IResponsibleParty(IObject):
 
 class IFreeKeyword(IObject):
 
-    value = zope.schema.TextLine(
-        title = u"Keyword value",
+    values = zope.schema.List(
+        title = u"Keyword values",
         description = u"The keyword value is a commonly used word, formalised word or phrase used to describe the subject. While the topic category is too coarse for detailed queries, keywords help narrowing a full text search and they allow for structured keyword search.\nThe value domain of this metadata element is free text.",
+        value_type = zope.schema.TextLine(title= u'Keyword value'),
+        min_length = 1,
+        max_length = 10,
         required = True)
 
     originating_vocabulary = zope.schema.TextLine(

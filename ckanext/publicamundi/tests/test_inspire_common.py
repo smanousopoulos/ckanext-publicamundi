@@ -87,37 +87,46 @@ def test_cnf2():
 
 # Fixtures
 
+
 # Find schema validation errors: date_type
 fkw1 = FreeKeyword(
-    value = u"val",
+    values = [u"val"],
     originating_vocabulary = u"Vocabulary",
     reference_date = datetime.date(800,1,1),
     date_type = "creationn")
 
-# Find schema validation error - value not set
+# Find schema validation errors: values not list
+
 fkw2 = FreeKeyword(
+    values = u"val",
+    originating_vocabulary = u"Vocabulary",
+    reference_date = datetime.date(800,1,1),
+    date_type = "creation")
+
+# Find schema validation error - value not set
+fkw3 = FreeKeyword(
     originating_vocabulary = u"Vocabulary",
     reference_date = datetime.date(800,1,1),
     date_type = "creation")
 
 # Find schema validation invariant error - dates set without originating vocabulary
-fkw3 = FreeKeyword(
-    value = u"val",
+fkw4 = FreeKeyword(
+    values = [u"val"],
     reference_date = datetime.date.today(),
     date_time = 'creation')
 
 # Find schema validation invariant error - originating vocabulary without dates
-fkw4 = FreeKeyword(
-    value = u"val",
+fkw5 = FreeKeyword(
+    values = [u"val"],
     originating_vocabulary = u"Vocabulary")
 
 # Only value set - correct
 fkw_correct = FreeKeyword(
-    value = u"val")
+    values = [u"val", u"val2"])
 
 # Validate correct schema
 fkw_correct_2 = FreeKeyword(
-    value = u"val",
+    values = [u"val"],
     originating_vocabulary = u"original",
     reference_date = datetime.date.today(),
     date_type = 'creation')
@@ -130,14 +139,14 @@ def test_fkw1():
         expected_keys=set(['date_type']))
 
 def test_fkw2():
-    '''Free Keywords validation errors: date_type'''
+    '''Free Keywords validation errors: values not list'''
     assert_faulty_keys(fkw2,
-        expected_keys=set(['value']))
+        expected_keys=set(['values']))
 
 def test_fkw3():
-    '''Free Keywords validation invariant error - not all fields set'''
+    '''Free Keywords validation errors: required values missing'''
     assert_faulty_keys(fkw3,
-        expected_keys=set(['__after']), expected_invariants=["You need to fill in the rest free-keyword fields"])
+        expected_keys=set(['values']))
 
 def test_fkw4():
     '''Free Keywords validation invariant error - not all fields set'''
@@ -145,10 +154,15 @@ def test_fkw4():
         expected_keys=set(['__after']), expected_invariants=["You need to fill in the rest free-keyword fields"])
 
 def test_fkw5():
+    '''Free Keywords validation invariant error - not all fields set'''
+    assert_faulty_keys(fkw5,
+        expected_keys=set(['__after']), expected_invariants=["You need to fill in the rest free-keyword fields"])
+
+def test_fkw6():
     '''Free Keywords correct schema'''
     assert_faulty_keys(fkw_correct)
 
-def test_fkw6():
+def test_fkw7():
     '''Free Keywords correct schema 2'''
     assert_faulty_keys(fkw_correct_2)
 

@@ -118,7 +118,8 @@ class InspireMetadata(BaseMetadata):
         tags = []
 
         for kw in self.free_keywords:
-            tags.append(dict(name=kw.value, display_name=kw.value))
+            for value in kw.values:
+                tags.append(dict(name=value, display_name=value))
         
         for thes_name, thes_terms in self.keywords.items():
             for term in thes_terms.iter_terms():
@@ -184,9 +185,15 @@ class InspireMetadataXmlSerializer(xml_serializers.BaseObjectSerializer):
         def to_responsible_party(alist):
             result = []
             for it in alist:
+                organization = None
+                if it.organization:
+                    organization = it.organization
+                email = None
+                if it.email:
+                    email = it.email
                 result.append(ResponsibleParty(
-                    organization = unicode(it.organization),
-                    email = unicode(it.email),
+                    organization = organization,
+                    email = email,
                     role = it.role))
             return result
 
@@ -195,7 +202,20 @@ class InspireMetadataXmlSerializer(xml_serializers.BaseObjectSerializer):
         md = MD_Metadata(e)
 
         datestamp = to_date(md.datestamp)
+        
+        if md.identification.title:
+            title = unicode(md.identification.title)
+        else:
+            # title not present - raise exception
+            raise Exception(_('Missing title'))
+        abstract = ''
+        if md.identification.abstract:
+            abstract = unicode(md.identification.abstract)
+
         id_list = md.identification.uricode
+        id_list_item = None
+        if len(id_list):
+            id_list_item = id_list[0]
 
         url_list = []
         if md.distribution:
@@ -239,13 +259,14 @@ class InspireMetadataXmlSerializer(xml_serializers.BaseObjectSerializer):
                 # Treat as free keywords (not really a thesaurus)
                 vocab_date = to_date(it['thesaurus']['date'])
                 vocab_datetype = it['thesaurus']['datetype']
+                values = []
                 for keyword in it['keywords']:
-                    free_keywords.append(FreeKeyword(
-                        value = keyword,
+                    values.append(keyword)
+                free_keywords.append(FreeKeyword(
+                        values = values,
                         reference_date = vocab_date,
                         date_type = vocab_datetype,
                         originating_vocabulary = thes_title))
-
         temporal_extent = []
         if md.identification.temporalextent_start or md.identification.temporalextent_end:
             temporal_extent = [TemporalExtent(
@@ -273,6 +294,9 @@ class InspireMetadataXmlSerializer(xml_serializers.BaseObjectSerializer):
             elif it.type == 'revision':
                 revision_date = to_date(it.date)
 
+        lineage = None
+        if md.dataquality.lineage:
+            lineage = unicode(md.dataquality.lineage)
         spatial_list = []
 
         if len(md.identification.distance) != len(md.identification.uom):
@@ -357,9 +381,10 @@ class InspireMetadataXmlSerializer(xml_serializers.BaseObjectSerializer):
         obj.contact = to_responsible_party(md.contact)
         obj.datestamp = datestamp
         obj.languagecode = md.languagecode
-        obj.title = unicode(md.identification.title)
-        obj.abstract = unicode(md.identification.abstract)
-        obj.identifier = id_list[0]
+        obj.title = title
+        obj.abstract = abstract
+
+        obj.identifier = id_list_item
         obj.locator = url_list
         #obj.resource_language = md.identification.resourcelanguage
         obj.topic_category = topic_list
@@ -370,7 +395,8 @@ class InspireMetadataXmlSerializer(xml_serializers.BaseObjectSerializer):
         obj.creation_date = creation_date
         obj.publication_date = publication_date
         obj.revision_date = revision_date
-        obj.lineage = unicode(md.dataquality.lineage)
+        obj.lineage = lineage
+        obj.lineage = md.dataquality.lineage
         obj.spatial_resolution = spatial_list
         obj.reference_system = reference_system
         obj.conformity = conf_list

@@ -63,7 +63,7 @@ class FreeKeyword(Object):
     
     zope.interface.implements(IFreeKeyword)
 
-    value = None
+    values = list
     originating_vocabulary = None
     reference_date = None
     date_type = None
