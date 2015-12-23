@@ -1,5 +1,6 @@
 import json
 import os.path
+from pylons import config
 
 from ckan.lib.base import (
     c, BaseController, render, request, abort, redirect)
@@ -7,19 +8,26 @@ import ckan.plugins.toolkit as toolkit
 import ckan.new_authz as new_authz
 
 from ckanext.publicamundi.themes.geodata.plugin import get_maps_db
+from ckanext.publicamundi.themes.geodata.mapsdb import (
+        Resource, TreeNode, Queryable, Field )
 
 _ = toolkit._
 NotFound = toolkit.ObjectNotFound
+MapNotFound = NotFound('Mapclient not enabled')
 NotAuthorized = toolkit.NotAuthorized
 
 
-class Controller(BaseController):
+class MapController(BaseController):
     def __init__(self):
         self.mapsdb = get_maps_db()
 
     def show_dashboard_maps(self):
         c.is_sysadmin = new_authz.is_sysadmin(c.user)
-        c.resources = self.mapsdb.get_resources_with_packages_organizations()
+        if self.mapsdb.engine:
+            c.enabled = True
+            c.resources = Resource(self.mapsdb.session).get_resources_with_packages_organizations()
+        else:
+            c.enabled = False
 
         return render('user/dashboard_maps.html')
 
@@ -80,7 +88,10 @@ class Controller(BaseController):
                 "title": "root"
                 }
 
-        tree_nodes = self.mapsdb.get_tree_nodes()
+        if not self.mapsdb.engine:
+            raise MapNotFound
+
+        tree_nodes = TreeNode(self.mapsdb.session).get_all_records()
         for node in tree_nodes:
             if node.get("parent") == None:
                 source.get("children").append(new_tree_node(source, node))
@@ -94,7 +105,8 @@ class Controller(BaseController):
                     #TODO: fix raise no text
                     raise 'oops something went wrong, tree node not found for visible node'
         
-        resources = self.mapsdb.get_resources_with_packages_organizations()
+        #resources = self.mapsdb.get_resources_with_packages_organizations()
+        resources = Resource(self.mapsdb.session).get_resources_with_packages_organizations()
         for res in resources:
             if res.get("visible") == True:
                 xnode = find_tree_node_by_key(source, res.get("tree_node_id"))
@@ -117,29 +129,35 @@ class Controller(BaseController):
     def save_maps_configuration(self):
         sysadmin = new_authz.is_sysadmin(c.user)
         if not sysadmin:
-            #raise toolkit.NotAuthorized('Not authorized for this action')
-            return 'Not authorized for this action'
+            raise NotAuthorized('Not authorized for this action')
 
-        # read request parameters
+        if not self.mapsdb.engine:
+            raise MapNotFound
+        
+        if not request.params:
+            raise NotFound('No parameters provided')
 
+        # read request POST parameters
         resources = request.params.get("resources")
+        
         if not resources:
-            resources = {}
+            resources = '{}'
+
         resources = json.loads(resources)
 
         tree_nodes = request.params.get("tree_nodes")
         if not tree_nodes:
-            tree_nodes = {}
+            tree_nodes = '{}'
         tree_nodes = json.loads(tree_nodes)
 
         resources_fields = request.params.get("resources_fields")
         if not resources_fields:
-            resources_fields = {}
+            resources_fields = '{}'
         resources_fields = json.loads(resources_fields)
 
         resources_queryable = request.params.get("resources_queryable")
         if not resources_queryable:
-            resources_queryable = {}
+            resources_queryable = '{}'
         resources_queryable = json.loads(resources_queryable)
 
         # transform dicts to lists
@@ -175,22 +193,24 @@ class Controller(BaseController):
             d.update({"id":resqk})
             res_quer_list.append(d)
 
-        # perform db tables deletes/updates/inserts
-        self.mapsdb.delete_tree_nodes(del_node_list)
-        self.mapsdb.upsert_tree_nodes(node_list)
-
-        self.mapsdb.update_resources(res_list)
-        self.mapsdb.update_resource_fields(res_fields_list)
-        self.mapsdb.upsert_resource_queryable(res_quer_list)
+        # perform db deletes/updates/inserts
+        TreeNode(self.mapsdb.session).delete_records(del_node_list)
+        TreeNode(self.mapsdb.session).upsert_records(node_list)
+        Resource(self.mapsdb.session).update_records(res_list)
+        Field(self.mapsdb.session).update_records(res_fields_list)
+        Queryable(self.mapsdb.session).upsert_records(res_quer_list)
 
         return
 
     def get_resource_queryable(self):
+        if not self.mapsdb.engine:
+            raise MapNotFound
+
         resource_id = request.params.get("id")
         if not resource_id:
             return
 
-        queryable = self.mapsdb.get_resource_queryable(resource_id)
+        queryable = Queryable(self.mapsdb.session).get_record_by_id(resource_id)
         if not queryable:
             return
 

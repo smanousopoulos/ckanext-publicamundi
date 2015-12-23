@@ -12,7 +12,7 @@ import ckan.lib.mailer as mailer
 import ckan.model as model
 import ckan.plugins.toolkit as toolkit
 
-from ckanext.publicamundi.themes.geodata.plugin import get_contact_point
+from ckanext.publicamundi.themes.geodata.template_helpers import get_contact_point
 
 _ = toolkit._
 
