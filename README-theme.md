@@ -1,10 +1,10 @@
 README Theme
 ============
 
- Includes the CKAN theme and collection of tools used in geodata.gov.gr. Implemented tools amongst others include the following:
- * ` Bootstrap-based email contact form in dataset page
- * ` Jquery-based 5-star rating for datasets
- * ` MapClient administration tools for the MapClient application (github.com/PublicaMundi/MapClient)
+ Includes the CKAN theme and a collection of tools used in geodata.gov.gr, such as the following:
+ * `Email contact form in dataset page with captcha`
+ * `5-star rating for datasets`
+ * `Administration tools for the MapClient application (github.com/PublicaMundi/MapClient)`
 
 Install
 -------
