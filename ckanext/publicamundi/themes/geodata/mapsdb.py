@@ -15,20 +15,45 @@ log1 = logging.getLogger(__name__)
 
 # Declare data model
 
-# Record base class
+class Organization(object):
+    pass
+
+class Group(object):
+    pass
+
+class Package(object):
+    pass
+
+class PackageGroup(object):
+    pass
+
+class Resource(object):
+    pass
+
+class Field(object):
+    pass
+
+class Queryable(object):
+    pass
+
+class TreeNode(object):
+    pass
+
+# RecordManager base class
 # provides functions for basic db operations
 # get, insert, update, upsert, delete records
 
-class Record(object):
-    def __init__(self, session):
+class RecordManager(object):
+    def __init__(self, session, record_type):
         self.session = session
+        self.record_type = record_type
 
     def get_record_by_id(self, id):
-        db_entry = self.session.query(type(self)).get(id)
+        db_entry = self.session.query(self.record_type).get(id)
         return _as_dict(db_entry)
 
     def get_all_records(self):
-        db_entries = self.session.query(type(self)).all()
+        db_entries = self.session.query(self.record_type).all()
         records = []
         for db_entry in db_entries:
             records.append(_as_dict(db_entry))
@@ -37,7 +62,8 @@ class Record(object):
     def insert_records(self, records):
         try:
             for rec in records:
-                db_entry = _update_object_with_dict(self, rec)
+                new_entry = self.record_type()
+                db_entry = _update_object_with_dict(new_entry, rec)
                 self.session.add(db_entry)
             self.session.commit()
         except Exception as ex:
@@ -49,7 +75,7 @@ class Record(object):
     def update_records(self, records):
         try:
             for rec in records:
-                db_entry = self.session.query(type(self)).get(rec.get("id"))
+                db_entry = self.session.query(self.record_type).get(rec.get("id"))
                 db_entry = _update_object_with_dict(db_entry, rec)
 
             self.session.commit()
@@ -62,11 +88,12 @@ class Record(object):
     def upsert_records(self, records):
         try:
             for rec in records:
-                db_entry = self.session.query(type(self)).get(rec.get("id"))
+                db_entry = self.session.query(self.record_type).get(rec.get("id"))
                 if db_entry:
                     db_entry = _update_object_with_dict(db_entry, rec)
                 else:
-                    db_entry = _update_object_with_dict(self, rec)
+                    new_entry = self.record_type()
+                    db_entry = _update_object_with_dict(new_entry, rec)
                     self.session.add(db_entry)
             self.session.commit()
         except Exception as ex:
@@ -78,7 +105,7 @@ class Record(object):
     def delete_records(self, records):
         try:
             for rec in records:
-                db_entry = self.session.query(type(self)).get(rec.get("id"))
+                db_entry = self.session.query(self.record_type).get(rec.get("id"))
                 if db_entry:
                     self.session.delete(db_entry)
             self.session.commit()
@@ -88,7 +115,7 @@ class Record(object):
 
     def delete_all_records(self):
         try:
-            db_entries = self.session.query(type(self)).all()
+            db_entries = self.session.query(self.record_type).all()
             for db_entry in db_entries:
                 self.session.delete(db_entry)
             self.session.commit()
@@ -96,36 +123,31 @@ class Record(object):
             log1.error(ex)
             self.session.rollback()
 
-# Specific classes inherit Record 
+# Specific Table Managers inherit RecordManager
 # and override specific functions
 
-class Organization(Record):
-    pass
+class ResourceManager(RecordManager):
+    def __init__(self, session):
+        super(ResourceManager, self).__init__(session, Resource)
 
-class Group(Record):
-    pass
-
-class Package(Record):
-    pass
-
-class PackageGroup(Record):
-    pass
-
-class Resource(Record):
     def get_all_records(self):
-        res = self.session.query(type(self)).all()
+        res = self.session.query(self.record_type).all()
         return _list_objects_to_dict(res)
 
     def get_resources_with_packages_organizations(self):
         res = self.session.query(Resource, Package, Organization).filter(Resource.package == Package.id).filter(Package.organization == Organization.id).order_by(Organization.title_el.asc()).order_by(Package.title_el.asc()).all()
         return _pkg_org_tuples_to_dict(res)
 
-class Field(Record):
-    pass
+class FieldManager(RecordManager):
+    def __init__(self, session):
+        super(FieldManager, self).__init__(session, Field)
 
-class Queryable(Record):
+class QueryableManager(RecordManager):
+    def __init__(self, session):
+        super(QueryableManager, self).__init__(session, Queryable)
+
     def get_record_by_id(self, resource_id):
-        res = self.session.query(type(self)).filter(type(self).resource == resource_id).all()
+        res = self.session.query(self.record_type).filter(self.record_type.resource == resource_id).all()
         queryable = _list_objects_to_dict(res)
         for q in queryable:
             q.update({'fields':\
@@ -137,9 +159,12 @@ class Queryable(Record):
         else:
             return None
 
-class TreeNode(Record):
+class TreeNodeManager(RecordManager):
+    def __init__(self, session):
+        super(TreeNodeManager, self).__init__(session, TreeNode)
+
     def get_all_records(self):
-        db_entries = self.session.query(type(self)).order_by(type(self).id.asc()).all()
+        db_entries = self.session.query(self.record_type).order_by(self.record_type.id.asc()).all()
         records = []
         for db_entry in db_entries:
             records.append(_as_dict(db_entry))

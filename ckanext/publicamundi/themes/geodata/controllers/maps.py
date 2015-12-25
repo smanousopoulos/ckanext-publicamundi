@@ -9,7 +9,7 @@ import ckan.new_authz as new_authz
 
 from ckanext.publicamundi.themes.geodata.plugin import get_maps_db
 from ckanext.publicamundi.themes.geodata.mapsdb import (
-        Resource, TreeNode, Queryable, Field )
+        ResourceManager, TreeNodeManager, QueryableManager, FieldManager )
 
 _ = toolkit._
 NotFound = toolkit.ObjectNotFound
@@ -25,7 +25,7 @@ class MapController(BaseController):
         c.is_sysadmin = new_authz.is_sysadmin(c.user)
         if self.mapsdb.engine:
             c.enabled = True
-            c.resources = Resource(self.mapsdb.session).get_resources_with_packages_organizations()
+            c.resources = ResourceManager(self.mapsdb.session).get_resources_with_packages_organizations()
         else:
             c.enabled = False
 
@@ -91,7 +91,7 @@ class MapController(BaseController):
         if not self.mapsdb.engine:
             raise MapNotFound
 
-        tree_nodes = TreeNode(self.mapsdb.session).get_all_records()
+        tree_nodes = TreeNodeManager(self.mapsdb.session).get_all_records()
         for node in tree_nodes:
             if node.get("parent") == None:
                 source.get("children").append(new_tree_node(source, node))
@@ -106,7 +106,7 @@ class MapController(BaseController):
                     raise 'oops something went wrong, tree node not found for visible node'
         
         #resources = self.mapsdb.get_resources_with_packages_organizations()
-        resources = Resource(self.mapsdb.session).get_resources_with_packages_organizations()
+        resources = ResourceManager(self.mapsdb.session).get_resources_with_packages_organizations()
         for res in resources:
             if res.get("visible") == True:
                 xnode = find_tree_node_by_key(source, res.get("tree_node_id"))
@@ -133,16 +133,14 @@ class MapController(BaseController):
 
         if not self.mapsdb.engine:
             raise MapNotFound
-        
+
         if not request.params:
             raise NotFound('No parameters provided')
 
         # read request POST parameters
         resources = request.params.get("resources")
-        
         if not resources:
             resources = '{}'
-
         resources = json.loads(resources)
 
         tree_nodes = request.params.get("tree_nodes")
@@ -163,42 +161,39 @@ class MapController(BaseController):
         # transform dicts to lists
         res_list = []
         for resk, resv in resources.iteritems():
-            d = resv.copy()
-            d.update({"id":resk})
-            if d.get("node"):
-                del d["node"]
-            res_list.append(d)
+            resv.update({"id":resk})
+            if resv.get("node"):
+                del resv["node"]
+            res_list.append(resv)
 
         node_list = []
         del_node_list = []
         for item in sorted(tree_nodes.items(), key=lambda x: x[1]):
             nodek = item[0]
             nodev = item[1]
-            d = nodev.copy()
-            d.update({"id":nodek})
-            if d.get("node"):
-                del d["node"]
-            if d.get("visible") == False:
+            nodev.update({"id":nodek})
+            if nodev.get("node"):
+                del nodev["node"]
+            if nodev.get("visible") == False:
                 del_node_list.append({"id":nodek})
             else:
-                node_list.append(d)
+                node_list.append(nodev)
 
         res_fields_list = []
         for resfk, resfv in resources_fields.iteritems():
-            res_fields_list = res_fields_list + resfv
+            res_fields_list += resfv
 
         res_quer_list = []
         for resqk, resqv in resources_queryable.iteritems():
-            d = resqv.copy()
-            d.update({"id":resqk})
-            res_quer_list.append(d)
+            resqv.update({"id":resqk})
+            res_quer_list.append(resqv)
 
         # perform db deletes/updates/inserts
-        TreeNode(self.mapsdb.session).delete_records(del_node_list)
-        TreeNode(self.mapsdb.session).upsert_records(node_list)
-        Resource(self.mapsdb.session).update_records(res_list)
-        Field(self.mapsdb.session).update_records(res_fields_list)
-        Queryable(self.mapsdb.session).upsert_records(res_quer_list)
+        TreeNodeManager(self.mapsdb.session).delete_records(del_node_list)
+        TreeNodeManager(self.mapsdb.session).upsert_records(node_list)
+        ResourceManager(self.mapsdb.session).update_records(res_list)
+        FieldManager(self.mapsdb.session).update_records(res_fields_list)
+        QueryableManager(self.mapsdb.session).upsert_records(res_quer_list)
 
         return
 
@@ -210,7 +205,7 @@ class MapController(BaseController):
         if not resource_id:
             return
 
-        queryable = Queryable(self.mapsdb.session).get_record_by_id(resource_id)
+        queryable = QueryableManager(self.mapsdb.session).get_record_by_id(resource_id)
         if not queryable:
             return
 
