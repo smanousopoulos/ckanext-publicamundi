@@ -103,6 +103,10 @@ def get_maps_url(package_id=None, resource_id=None):
     else:
         return '/'
 
+# Package rating
+def package_rating_enabled():
+    return config.get('ckanext.publicamundi.themes.geodata.package_rating', False)
+
 # Resource preview helpers
 
 # Returns the most suitable preview by checking whether ingested resources provide a better preview visualization

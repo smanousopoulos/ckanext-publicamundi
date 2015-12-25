@@ -8,7 +8,7 @@
 
 {% block page_heading %}
   {{ pkg.title or pkg.name }}
-  
+
   {% if pkg.get('state', '').startswith('draft') %}
   <span class="label package-state label-info state-draft">{{ _('Draft') }}</span>
   {% elif pkg.get('state', '').startswith('deleted') %}

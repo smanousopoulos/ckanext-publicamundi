@@ -36,7 +36,10 @@ Some configuration options for the theme plugin:
 
     # MapClient Database url
     ckanext.publicamundi.themes.geodata.mapclient_db = postgres://tester:tester@localhost/mapclient
-    
+
+    # 5-star rating for datasets
+    ckanext.publicamundi.package_rating = True
+
     # MapClient link for menu
     ckanext.publicamundi.themes.geodata.maps_url = maps
     

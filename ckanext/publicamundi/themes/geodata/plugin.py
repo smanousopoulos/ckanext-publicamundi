@@ -48,6 +48,7 @@ class GeodataThemePlugin(plugins.SingletonPlugin):
             'can_preview_resource_or_ingested': template_helpers.can_preview_resource_or_ingested,
             'get_translated_dataset_groups' : template_helpers.get_translated_dataset_groups,
             'get_term_translation': template_helpers.get_term_translation,
+            'package_rating_enabled': template_helpers.package_rating_enabled,
         }
     
     # IConfigurer
@@ -70,6 +71,8 @@ class GeodataThemePlugin(plugins.SingletonPlugin):
         _maps_db = MapsRecords()
 
         return
+
+
 
     # IRoutes
 

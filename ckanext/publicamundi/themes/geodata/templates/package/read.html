@@ -43,6 +43,16 @@
     {{ super() }}
 {% endblock %}
 
+{% block package_description %}
+    {% if h.package_rating_enabled() %}
+    {% block package_rating %}
+        {% snippet "snippets/rating.html", pkg=pkg, num_ratings=c.num_ratings, current_rating=c.current_rating, user=c.user  %}
+    {% endblock %}
+    {% endif %}
+
+  {{ super() }}
+  {% endblock %}
+
 {% block package_notes %}
     {% block package_dates %}
     <div class="dataset-dates">
@@ -104,4 +114,9 @@
         {% snippet "snippets/social.html" %}
     {% endblock %} 
 
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+{% resource 'ckanext-publicamundi-geodata-theme/ratings' %}
 {% endblock %}

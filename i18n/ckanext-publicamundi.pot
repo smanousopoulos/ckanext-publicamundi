@@ -2713,6 +2713,11 @@ msgid "Private"
 msgstr ""
 
 #: ckanext/publicamundi/templates/snippets/search_form.html:22
+#: ckanext/publicamundi/templates/snippets/rating.html:21
+msgid "votes"
+msgstr ""
+
+#: ckanext/publicamundi/templates/snippets/search_form.html:18
 #: ckanext/publicamundi/themes/geodata/templates/snippets/search_form.html:60
 #: ckanext/publicamundi/themes/geodata/templates/snippets/search_form_top.html:64
 msgid "Remove"
