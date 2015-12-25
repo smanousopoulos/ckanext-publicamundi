@@ -2,9 +2,9 @@ README Theme
 ============
 
  Includes the CKAN theme and a collection of tools used in geodata.gov.gr, such as the following:
- * `Email contact form in dataset page with captcha`
- * `5-star rating for datasets`
- * `Administration tools for the MapClient application (github.com/PublicaMundi/MapClient)`
+ * Contact form in dataset page with captcha
+ * 5-star rating for datasets
+ * Administration tool for the MapClient application (<a href="https://github.com/PublicaMundi/MapClient">githib.com/PublicaMundi/MapClient</a>)
 
 Install
 -------
@@ -40,7 +40,7 @@ Some configuration options for the theme plugin:
     # 5-star rating for datasets
     ckanext.publicamundi.package_rating = True
 
-    # MapClient link for menu
+    # MapClient menu link
     ckanext.publicamundi.themes.geodata.maps_url = maps
     
     # Feedback form link
