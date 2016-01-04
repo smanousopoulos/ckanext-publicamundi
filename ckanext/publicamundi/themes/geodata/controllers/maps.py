@@ -2,14 +2,14 @@ import json
 import os.path
 from pylons import config
 
+import ckan.model as model
 from ckan.lib.base import (
     c, BaseController, render, request, abort, redirect)
 import ckan.plugins.toolkit as toolkit
 import ckan.new_authz as new_authz
 
-#from ckanext.publicamundi.themes.geodata.plugin import get_maps_db
 from ckanext.publicamundi.themes.geodata import mapclient
-from ckanext.publicamundi.themes.geodata.mapsdb import (
+from ckanext.publicamundi.themes.geodata.mapsdbhelpers import (
         ResourceManager, TreeNodeManager, QueryableManager, FieldManager )
 
 _ = toolkit._
@@ -25,7 +25,7 @@ class MapController(BaseController):
         if not c.is_sysadmin:
             return render('user/dashboard_maps.html')
 
-        session = mapclient.session
+        session = mapclient.Session
         if session:
             c.enabled = True
             c.resources = ResourceManager(session).get_resources_with_packages_organizations()
@@ -93,7 +93,7 @@ class MapController(BaseController):
                 "title": "root"
                 }
 
-        session = mapclient.session
+        session = mapclient.Session
         if not session:
             raise MapNotFound
 
@@ -145,7 +145,8 @@ class MapController(BaseController):
         if not sysadmin:
             raise NotAuthorized('Not authorized for this action')
 
-        session = mapclient.session
+        #session = mapclient.session
+        session = mapclient.Session
         if not session:
             raise MapNotFound
 
@@ -216,7 +217,8 @@ class MapController(BaseController):
         ''' Helper API call that returns queryable resource and its fields
             parameters: id
         '''
-        session = mapclient.session
+        #session = mapclient.session
+        session = mapclient.Session
         if not session:
             raise MapNotFound
 
