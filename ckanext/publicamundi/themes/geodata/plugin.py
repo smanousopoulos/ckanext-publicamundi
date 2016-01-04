@@ -11,21 +11,13 @@ from ckan import model
 from ckan.lib import helpers as h
 from ckan.lib.base import c
 
-from ckanext.publicamundi.themes.geodata.mapsdb import MapsRecords
-
 import ckanext.publicamundi.themes.geodata.template_helpers as template_helpers
 
 log1 = logging.getLogger(__name__)
 
-_maps_db = None
-
-def get_maps_db():
-    return _maps_db
-
 class GeodataThemePlugin(plugins.SingletonPlugin):
     '''Theme plugin for geodata.gov.gr.
     '''
-
 
     plugins.implements(plugins.IConfigurer)
     plugins.implements(plugins.IConfigurable, inherit=True)
@@ -65,11 +57,7 @@ class GeodataThemePlugin(plugins.SingletonPlugin):
 
     def configure(self, config):
         '''Pass configuration to plugins and extensions'''
-
-        # Initialize maps db
-        global _maps_db
-        _maps_db = MapsRecords()
-
+ 
         return
 
 
