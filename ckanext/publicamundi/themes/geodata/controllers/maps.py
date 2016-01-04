@@ -2,15 +2,14 @@ import json
 import os.path
 from pylons import config
 
-import ckan.model as model
 from ckan.lib.base import (
     c, BaseController, render, request, abort, redirect)
 import ckan.plugins.toolkit as toolkit
 import ckan.new_authz as new_authz
 
-from ckanext.publicamundi.themes.geodata import mapclient
-from ckanext.publicamundi.themes.geodata.mapsdbhelpers import (
+from ckanext.publicamundi.themes.geodata.mapclient.manager import (
         ResourceManager, TreeNodeManager, QueryableManager, FieldManager )
+from ckanext.publicamundi.themes.geodata.mapclient import mapclient
 
 _ = toolkit._
 NotFound = toolkit.ObjectNotFound
@@ -25,13 +24,11 @@ class MapController(BaseController):
         if not c.is_sysadmin:
             return render('user/dashboard_maps.html')
 
-        session = mapclient.Session
-        if session:
+        if mapclient.is_active():
             c.enabled = True
-            c.resources = ResourceManager(session).get_resources_with_packages_organizations()
+            c.resources = ResourceManager().get_resources_with_packages_organizations()
         else:
             c.enabled = False
-
         return render('user/dashboard_maps.html')
 
     def get_maps_configuration(self):
@@ -93,11 +90,10 @@ class MapController(BaseController):
                 "title": "root"
                 }
 
-        session = mapclient.Session
-        if not session:
+        if not mapclient.is_active():
             raise MapNotFound
 
-        tree_nodes = TreeNodeManager(session).get_all_records()
+        tree_nodes = TreeNodeManager().get_all_records()
         for node in tree_nodes:
             if node.get("parent") == None:
                 source.get("children").append(new_tree_node(source, node))
@@ -110,9 +106,8 @@ class MapController(BaseController):
                 else:
                     #TODO: fix raise no text
                     raise 'oops something went wrong, tree node not found for visible node'
-        
-        #resources = self.mapsdb.get_resources_with_packages_organizations()
-        resources = ResourceManager(session).get_resources_with_packages_organizations()
+
+        resources = ResourceManager().get_resources_with_packages_organizations()
         for res in resources:
             if res.get("visible") == True:
                 xnode = find_tree_node_by_key(source, res.get("tree_node_id"))
@@ -145,9 +140,7 @@ class MapController(BaseController):
         if not sysadmin:
             raise NotAuthorized('Not authorized for this action')
 
-        #session = mapclient.session
-        session = mapclient.Session
-        if not session:
+        if not mapclient.is_active():
             raise MapNotFound
 
         if not request.params:
@@ -205,11 +198,11 @@ class MapController(BaseController):
             res_quer_list.append(resqv)
 
         # perform db deletes/updates/inserts
-        TreeNodeManager(session).delete_records(del_node_list)
-        TreeNodeManager(session).upsert_records(node_list)
-        ResourceManager(session).update_records(res_list)
-        FieldManager(session).update_records(res_fields_list)
-        QueryableManager(session).upsert_records(res_quer_list)
+        TreeNodeManager().delete_records(del_node_list)
+        TreeNodeManager().upsert_records(node_list)
+        ResourceManager().update_records(res_list)
+        FieldManager().update_records(res_fields_list)
+        QueryableManager().upsert_records(res_quer_list)
 
         return
 
@@ -217,16 +210,14 @@ class MapController(BaseController):
         ''' Helper API call that returns queryable resource and its fields
             parameters: id
         '''
-        #session = mapclient.session
-        session = mapclient.Session
-        if not session:
+        if not mapclient.is_active():
             raise MapNotFound
 
         resource_id = request.params.get("id")
         if not resource_id:
             return
 
-        queryable = QueryableManager(session).get_record_by_id(resource_id)
+        queryable = QueryableManager().get_record_by_id(resource_id)
         if not queryable:
             return
 

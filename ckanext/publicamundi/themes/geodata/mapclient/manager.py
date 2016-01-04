@@ -1,21 +1,20 @@
-import ckanext.publicamundi.themes.geodata.mapsdb as model
+import ckanext.publicamundi.themes.geodata.mapclient.model as model
+from ckanext.publicamundi.themes.geodata.mapclient import mapclient
 
 # RecordManager base class
 # provides functions for basic db operations
 # get, insert, update, upsert, delete records
 
 class RecordManager(object):
-    def __init__(self, session, record_type=None):
-        self.session = session
+    def __init__(self, record_type=None):
         self.record_type = record_type
 
-
     def get_record_by_id(self, id):
-        db_entry = self.session.query(self.record_type).get(id)
+        db_entry = mapclient.Session.query(self.record_type).get(id)
         return _as_dict(db_entry)
 
     def get_all_records(self):
-        db_entries = self.session.query(self.record_type).all()
+        db_entries = mapclient.Session.query(self.record_type).all()
         records = []
         for db_entry in db_entries:
             records.append(_as_dict(db_entry))
@@ -26,90 +25,90 @@ class RecordManager(object):
             for rec in records:
                 new_entry = self.record_type()
                 db_entry = _update_object_with_dict(new_entry, rec)
-                self.session.add(db_entry)
-            self.session.commit()
+                mapclient.Session.add(db_entry)
+            mapclient.Session.commit()
         except Exception as ex:
             log1.error(ex)
-            self.session.rollback()
+            mapclient.Session.rollback()
 
         return records
 
     def update_records(self, records):
         try:
             for rec in records:
-                db_entry = self.session.query(self.record_type).get(rec.get("id"))
+                db_entry = mapclient.Session.query(self.record_type).get(rec.get("id"))
                 db_entry = _update_object_with_dict(db_entry, rec)
 
-            self.session.commit()
+            mapclient.Session.commit()
         except Exception as ex:
             log1.error(ex)
-            self.session.rollback()
+            mapclient.Session.rollback()
 
         return records
 
     def upsert_records(self, records):
         try:
             for rec in records:
-                db_entry = self.session.query(self.record_type).get(rec.get("id"))
+                db_entry = mapclient.Session.query(self.record_type).get(rec.get("id"))
                 if db_entry:
                     db_entry = _update_object_with_dict(db_entry, rec)
                 else:
                     new_entry = self.record_type()
                     db_entry = _update_object_with_dict(new_entry, rec)
-                    self.session.add(db_entry)
-            self.session.commit()
+                    mapclient.Session.add(db_entry)
+            mapclient.Session.commit()
         except Exception as ex:
             log1.error(ex)
-            self.session.rollback()
+            mapclient.Session.rollback()
 
         return records
 
     def delete_records(self, records):
         try:
             for rec in records:
-                db_entry = self.session.query(self.record_type).get(rec.get("id"))
+                db_entry = mapclient.Session.query(self.record_type).get(rec.get("id"))
                 if db_entry:
-                    self.session.delete(db_entry)
-            self.session.commit()
+                    mapclient.Session.delete(db_entry)
+            mapclient.Session.commit()
         except Exception as ex:
             log1.error(ex)
-            self.session.rollback()
+            mapclient.Session.rollback()
 
     def delete_all_records(self):
         try:
-            db_entries = self.session.query(self.record_type).all()
+            db_entries = mapclient.Session.query(self.record_type).all()
             for db_entry in db_entries:
-                self.session.delete(db_entry)
-            self.session.commit()
+                mapclient.Session.delete(db_entry)
+            mapclient.Session.commit()
         except Exception as ex:
             log1.error(ex)
-            self.session.rollback()
+            mapclient.Session.rollback()
 
 # Specific Table Managers inherit RecordManager
 # and override specific functions
 
 class ResourceManager(RecordManager):
-    def __init__(self, session):
-        super(ResourceManager, self).__init__(session, model.Resource)
+    def __init__(self):
+        super(ResourceManager, self).__init__(model.Resource)
 
     def get_all_records(self):
-        res = self.session.query(model.Resource).all()
+        res = mapclient.Session.query(model.Resource).all()
         return _list_objects_to_dict(res)
 
     def get_resources_with_packages_organizations(self):
-        res = self.session.query(model.Resource, model.Package, model.Organization).filter(model.Resource.package == model.Package.id).filter(model.Package.organization == model.Organization.id).order_by(model.Organization.title_el.asc()).order_by(model.Package.title_el.asc()).all()
+        res = mapclient.Session.query(model.Resource, model.Package, model.Organization).filter(model.Resource.package == model.Package.id).filter(model.Package.organization == model.Organization.id).order_by(model.Organization.title_el.asc()).order_by(model.Package.title_el.asc()).all()
         return _pkg_org_tuples_to_dict(res)
 
 class FieldManager(RecordManager):
-    def __init__(self, session):
-        super(FieldManager, self).__init__(session, model.Field)
+    def __init__(self):
+        super(FieldManager, self).__init__(model.Field)
 
 class QueryableManager(RecordManager):
-    def __init__(self, session):
-        super(QueryableManager, self).__init__(session, model.Queryable)
+    def __init__(self):
+        super(QueryableManager, self).__init__(model.Queryable)
 
     def get_record_by_id(self, resource_id):
-        res = self.session.query(self.record_type).filter(self.record_type.resource == resource_id).all()
+        res = mapclient.Session.query(self.record_type).filter(self.record_type.resource == resource_id).all()
         queryable = _list_objects_to_dict(res)
         for q in queryable:
             q.update({'fields':\
@@ -122,11 +121,11 @@ class QueryableManager(RecordManager):
             return None
 
 class TreeNodeManager(RecordManager):
-    def __init__(self, session):
-        super(TreeNodeManager, self).__init__(session, model.TreeNode)
+    def __init__(self):
+        super(TreeNodeManager, self).__init__(model.TreeNode)
 
     def get_all_records(self):
-        db_entries = self.session.query(self.record_type).order_by(model.TreeNode.id.asc()).all()
+        db_entries = mapclient.Session.query(self.record_type).order_by(model.TreeNode.id.asc()).all()
         records = []
         for db_entry in db_entries:
             records.append(_as_dict(db_entry))

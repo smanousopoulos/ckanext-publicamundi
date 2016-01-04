@@ -1,7 +1,6 @@
 import logging
 
 from pylons import config
-
 from sqlalchemy import create_engine, MetaData, Table, Column, Integer, String, Boolean
 from sqlalchemy.types import Text, BigInteger
 from sqlalchemy.schema import ForeignKey
@@ -48,14 +47,16 @@ class MapClient(object):
         self.engine = None
         self.metadata = None
         self.session = None
+        self.active = False
 
         if self.maps_db:
             try:
                 self._initialize_session()
                 self._initialize_model()
             except:
-                self.engine = None
                 log1.debug('Mapclient not set up correctly. Check database configuration')
+            else:
+                self.active = True
         else:
             log1.info('Mapclient database option not found. Skipping')
 
@@ -63,12 +64,6 @@ class MapClient(object):
         self.engine = create_engine(self.maps_db)
         session_factory = sessionmaker(bind=self.engine)
         self.Session = scoped_session(session_factory)
-
-        #self.session = Session()
-        #Session.configure(bind=self.engine)
-        #self.session = session_factory()
-        #self.session = self.Session()
-        
         self.metadata = MetaData()
 
     def _initialize_model(self):
@@ -79,7 +74,7 @@ class MapClient(object):
 
 
         self.groups = Table('group',
-                        self.metadata,  
+                        self.metadata,
                         autoload=True,
                         autoload_with=self.engine)
 
@@ -95,7 +90,7 @@ class MapClient(object):
                                 self.metadata,
                                 Column('package_id', Text, ForeignKey('package.id')),
                                 Column('group_id', Text, ForeignKey('group.id')),
-                                autoload=True, 
+                                autoload=True,
                                 autoload_with=self.engine)
         
         self.tree_nodes = Table('resource_tree_node',
@@ -122,47 +117,43 @@ class MapClient(object):
                         Column('queryable', Text, ForeignKey('resource_queryable.id')),
                         autoload=True,
                         autoload_with=self.engine)
-        
-        # Do the mappings only once
-        try:
-            mapper(Organization, self.organizations)
-            mapper(Group, self.groups)
-            mapper(PackageGroup, self.package_groups, properties={
-                # M:1 relations. No lazy loading is used.
-                'packageRef':relation(Package, lazy=False),
-                'groupRef':relation(Group, lazy=False)
-                })
-
-            mapper(Package, self.packages, properties = {
-                # M:1 relation
-                'organizationRef': relation(Organization, uselist=False, remote_side=[self.organizations.c.id], lazy=False),
-                # M:N relation. No lazy loading is used.
-                'groups': relation(PackageGroup, lazy=False),
-                })
-
-            mapper(TreeNode, self.tree_nodes, properties={
-                # Add a reference to the parent group. It is important to set remote_side parameter since the relation is a many-to-one
-                # relation. Moreover, since this is a self-referencing relation, join_depth parameter must be also set in order to avoid
-                # querying the database for the parent of each group.
-                'parentRef': relation(TreeNode, uselist=False, remote_side=[self.tree_nodes.c.id], lazy=False, join_depth=1)
+       
+        mapper(Organization, self.organizations)
+        mapper(Group, self.groups)
+        mapper(PackageGroup, self.package_groups, properties={
+            # M:1 relations. No lazy loading is used.
+            'packageRef':relation(Package, lazy=False),
+            'groupRef':relation(Group, lazy=False)
             })
-            
-            mapper(Resource, self.resources, properties = {
-                # M:1 relation
-                'packageRef': relation(Package, uselist=False, remote_side=[self.packages.c.id], lazy=False),
-                # M:1 relation
-                'treeNodeRef': relation(TreeNode, uselist=False, remote_side=[self.tree_nodes.c.id], lazy=False),
-                # 1:1 relation. No lazy loading is used. Allow cascading deletes
-                'queryableRef': relation(Queryable, lazy=False, backref='resourceRef', cascade="all, delete, delete-orphan")
-                })
 
-            mapper(Field, self.fields)
-            mapper(Queryable, self.queryables, properties = {
-                # 1:M relation. No lazy loading is used. Allow cascading deletes
-                'fields': relation(Field, lazy=False, backref='queryableRef', cascade="all, delete, delete-orphan")
-                })
-        except Exception as ex:
-            log1.debug('Failure mapping tables to classes ')
+        mapper(Package, self.packages, properties = {
+            # M:1 relation
+            'organizationRef': relation(Organization, uselist=False, remote_side=[self.organizations.c.id], lazy=False),
+            # M:N relation. No lazy loading is used.
+            'groups': relation(PackageGroup, lazy=False),
+            })
+
+        mapper(TreeNode, self.tree_nodes, properties={
+            # Add a reference to the parent group. It is important to set remote_side parameter since the relation is a many-to-one
+            # relation. Moreover, since this is a self-referencing relation, join_depth parameter must be also set in order to avoid
+            # querying the database for the parent of each group.
+            'parentRef': relation(TreeNode, uselist=False, remote_side=[self.tree_nodes.c.id], lazy=False, join_depth=1)
+        })
+        
+        mapper(Resource, self.resources, properties = {
+            # M:1 relation
+            'packageRef': relation(Package, uselist=False, remote_side=[self.packages.c.id], lazy=False),
+            # M:1 relation
+            'treeNodeRef': relation(TreeNode, uselist=False, remote_side=[self.tree_nodes.c.id], lazy=False),
+            # 1:1 relation. No lazy loading is used. Allow cascading deletes
+            'queryableRef': relation(Queryable, lazy=False, backref='resourceRef', cascade="all, delete, delete-orphan")
+            })
+
+        mapper(Field, self.fields)
+        mapper(Queryable, self.queryables, properties = {
+            # 1:M relation. No lazy loading is used. Allow cascading deletes
+            'fields': relation(Field, lazy=False, backref='queryableRef', cascade="all, delete, delete-orphan")
+            })
 
     # TODO: when should _cleanup be called?
     def _cleanup(self):
@@ -172,3 +163,6 @@ class MapClient(object):
         except:
             pass
 
+    # returns True if mapclient DB has been initialized correctly
+    def is_active(self):
+        return self.active
