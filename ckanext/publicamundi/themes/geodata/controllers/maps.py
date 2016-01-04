@@ -10,7 +10,7 @@ import ckan.new_authz as new_authz
 #from ckanext.publicamundi.themes.geodata.plugin import get_maps_db
 from ckanext.publicamundi.themes.geodata import mapclient
 from ckanext.publicamundi.themes.geodata.mapsdb import (
-        Resource, ResourceManager, TreeNodeManager, QueryableManager, FieldManager )
+        ResourceManager, TreeNodeManager, QueryableManager, FieldManager )
 
 _ = toolkit._
 NotFound = toolkit.ObjectNotFound
